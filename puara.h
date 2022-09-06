@@ -46,7 +46,7 @@
 class Puara {
     
     private:
-        static unsigned int version = 220803;
+        static unsigned int version;
         static std::string dmiName;
 
         struct settingsVariables {
