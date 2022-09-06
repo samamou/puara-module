@@ -33,6 +33,7 @@ unsigned int Puara::oscPORT2;
 unsigned int Puara::localPORT;
 std::string Puara::wifiAvailableSsid;
 std::string Puara::currentSSID;
+static unsigned int Puara::version = 20220906;
 
 std::unordered_map<std::string,int> Puara::config_fields = {
     {"SSID",1},
@@ -90,7 +91,6 @@ void Puara::set_version(unsigned int user_version) {
 
 void Puara::start() {
     std::cout << Puara::version << "\n";
-    Puara::version = 20220906;
     std::cout 
     << "\n"
     << "**********************************************************\n"
