@@ -46,7 +46,7 @@
 class Puara {
     
     private:
-        static const unsigned int VERSION = 220803;
+        static unsigned int version = 220803;
         static std::string dmiName;
 
         struct settingsVariables {
@@ -145,7 +145,8 @@ class Puara {
         static void stop_webserver(void);
         static void start_wifi();
         std::string get_dmi_name();
-        static int get_version();
+        static unsigned int get_version();
+        static void set_version();
         static std::string getIP1();
         static std::string getIP2();
         static int unsigned getPORT1();

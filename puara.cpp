@@ -80,8 +80,12 @@ char Puara::serial_data[12];
 int Puara::serial_data_length;
 std::string Puara::serial_data_str;
 
-int Puara::get_version() {
-    return VERSION;
+unsigned int Puara::get_version() {
+    return version;
+};
+
+void Puara::set_version(unsigned int user_version) {
+    version = user_version;
 };
 
 void Puara::start() {
@@ -92,7 +96,7 @@ void Puara::start() {
     << "* Metalab - Société des Arts Technologiques (SAT)        *\n"
     << "* Input Devices and Music Interaction Laboratory (IDMIL) *\n"
     << "* Edu Meneses (2022) - https://www.edumeneses.com        *\n"
-    << "* Firmware version: " << VERSION << "                             *\n"
+    << "* Firmware version: " << version << "                             *\n"
     << "**********************************************************\n"
     << std::endl;
     
@@ -710,7 +714,7 @@ std::string Puara::prepare_index() {
     Puara::find_and_replace("%MODULEID%", tempBuf.str(), contents);
     Puara::find_and_replace("%MODULEAUTH%", Puara::author, contents);
     Puara::find_and_replace("%MODULEINST%", Puara::institution, contents);
-    Puara::find_and_replace("%MODULEVER%", Puara::VERSION, contents);
+    Puara::find_and_replace("%MODULEVER%", Puara::version, contents);
 
     Puara::unmount_spiffs();
 
