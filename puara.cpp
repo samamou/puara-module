@@ -90,7 +90,6 @@ void Puara::set_version(unsigned int user_version) {
 };
 
 void Puara::start() {
-    std::cout << Puara::version << "\n";
     std::cout 
     << "\n"
     << "**********************************************************\n"
