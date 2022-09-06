@@ -146,7 +146,7 @@ class Puara {
         static void start_wifi();
         std::string get_dmi_name();
         static unsigned int get_version();
-        static void set_version();
+        static void set_version(unsigned int user_version);
         static std::string getIP1();
         static std::string getIP2();
         static int unsigned getPORT1();
