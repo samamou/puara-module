@@ -48,7 +48,6 @@ class Puara {
     private:
         static unsigned int version;
         static std::string dmiName;
-
         struct settingsVariables {
             std::string name;
             std::string type;
@@ -100,6 +99,9 @@ class Puara {
         static void ap_event_handler(void* arg, esp_event_base_t event_base, int event_id, void* event_data);
         static void wifi_init();
 
+        static void read_settings_json_internal(std::string& contents);
+        static bool IsInConfigurationMode;
+
         static httpd_handle_t webserver;
         static httpd_config_t webserver_config;
         static httpd_uri_t index;
@@ -128,9 +130,10 @@ class Puara {
         static const uint8_t spiffs_max_files = 10;
         static const bool spiffs_format_if_mount_failed = false;
 
-        static char serial_data[12];
+        static char serial_data[128];
         static int serial_data_length;
         static std::string serial_data_str;
+        static std::string serial_config_str;
         static std::string convertToString(char* a);
         static void interpret_serial(void *pvParameter);
         static void serial_monitor(void *pvParameters);

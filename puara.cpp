@@ -20,6 +20,8 @@ std::string Puara::device;
 unsigned int Puara::id;
 std::string Puara::author;
 std::string Puara::institution;
+
+
 std::string Puara::APpasswd;
 std::string Puara::APpasswdVal1;
 std::string Puara::APpasswdVal2;
@@ -77,9 +79,12 @@ httpd_uri_t Puara::indexpost;
 httpd_uri_t Puara::settings;
 httpd_uri_t Puara::settingspost;
 
-char Puara::serial_data[12];
+char Puara::serial_data[128];
 int Puara::serial_data_length;
 std::string Puara::serial_data_str;
+std::string Puara::serial_config_str;
+
+bool Puara::IsInConfigurationMode = false;
 
 unsigned int Puara::get_version() {
     return version;
@@ -478,9 +483,15 @@ void Puara::read_settings_json() {
 
     std::cout << "json: Reading json file" << std::endl;
     std::ifstream in("/spiffs/settings.json");
-    std::string contents((std::istreambuf_iterator<char>(in)), 
-    std::istreambuf_iterator<char>());
+    std::string contents((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
 
+    Puara::read_settings_json_internal(contents);
+    fclose(f);
+    Puara::unmount_spiffs();
+}
+
+void Puara::read_settings_json_internal(std::string& contents)
+{
     std::cout << "json: Getting data" << std::endl;
     cJSON *root = cJSON_Parse(contents.c_str());
     cJSON *setting = NULL;
@@ -526,8 +537,6 @@ void Puara::read_settings_json() {
     
     cJSON_Delete(root);
 
-    fclose(f);
-    Puara::unmount_spiffs();
 }
 
 
@@ -1197,10 +1206,25 @@ std::string Puara::convertToString(char* a) {
 void Puara::interpret_serial(void *pvParameter) {
     while (1) {
         if ( !serial_data_str.empty() ) {
-            if ( serial_data_str.find("reset") != std::string::npos || 
-                 serial_data_str.find("reboot") != std::string::npos ) {
+            if ( serial_data_str.compare("reset") == 0 ||
+                 serial_data_str.compare("reboot") == 0 ) {
                 std::cout <<  "\nRebooting...\n" << std::endl;
                 xTaskCreate(&Puara::reboot_with_delay, "reboot_with_delay", 1024, NULL, 10, NULL);
+            } else if (serial_data_str.find("getstr") != std::string::npos) {
+                std::string var_name = serial_data_str.substr(serial_data_str.find(" ")+1);
+                std::cout << Puara::getVarText(var_name) << std::endl;
+            } else if ( serial_data_str.compare("configure") == 0 && !Puara::IsInConfigurationMode ) {
+                std::cout << "entering serial configuration mode" << std::endl;
+                std::cout << "send configuration, followed by \"endconfigure\" (without quotes)" << std::endl;
+                Puara::serial_config_str.clear();
+                Puara::IsInConfigurationMode = true;
+            } else if ( serial_data_str.compare("endconfigure") == 0 && Puara::IsInConfigurationMode ) {
+                std::cout << "received the following config:" << std::endl;
+                std::cout << Puara::serial_config_str << std::endl;
+                Puara::read_settings_json_internal(serial_config_str);
+                Puara::IsInConfigurationMode = false;
+            } else if ( Puara::IsInConfigurationMode ) {
+                Puara::serial_config_str.append(serial_data_str);
             } else {
                 std::cout << "\nI don´t recognize the command \"" << serial_data_str << "\""<< std::endl;
             }
