@@ -20,8 +20,6 @@ std::string Puara::device;
 unsigned int Puara::id;
 std::string Puara::author;
 std::string Puara::institution;
-
-
 std::string Puara::APpasswd;
 std::string Puara::APpasswdVal1;
 std::string Puara::APpasswdVal2;
