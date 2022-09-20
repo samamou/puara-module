@@ -481,7 +481,8 @@ void Puara::read_settings_json() {
 
     std::cout << "json: Reading json file" << std::endl;
     std::ifstream in("/spiffs/settings.json");
-    std::string contents((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    std::string contents((std::istreambuf_iterator<char>(in)), 
+    std::istreambuf_iterator<char>());
 
     Puara::read_settings_json_internal(contents);
     fclose(f);
