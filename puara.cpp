@@ -489,8 +489,7 @@ void Puara::read_settings_json() {
     Puara::unmount_spiffs();
 }
 
-void Puara::read_settings_json_internal(std::string& contents)
-{
+void Puara::read_settings_json_internal(std::string& contents) {
     std::cout << "json: Getting data" << std::endl;
     cJSON *root = cJSON_Parse(contents.c_str());
     cJSON *setting = NULL;
