@@ -1219,9 +1219,11 @@ void Puara::interpret_serial(void *pvParameters) {
         } else if (serial_data_str.rfind("config", 0) == 0) {
             serial_data_str_buffer = serial_data_str.substr(serial_data_str.find(" ")+1);
             Puara::read_config_json_internal(serial_data_str_buffer);
+            Puara::write_config_json();
         } else if (serial_data_str.rfind("settings", 0) == 0) {
             serial_data_str_buffer = serial_data_str.substr(serial_data_str.find(" ")+1);
             Puara::read_settings_json_internal(serial_data_str_buffer);
+            Puara::write_settings_json();
         } else {
             std::cout << "\nI don´t recognize the command \"" << serial_data_str << "\""<< std::endl;
         }
@@ -1264,7 +1266,7 @@ void Puara::interpret_serial(void *pvParameters) {
     bool Puara::start_serial_listening() {
         //std::cout << "starting serial monitor \n";
         xTaskCreate(serial_monitor, "serial_monitor", 2048, NULL, 10, NULL);
-        xTaskCreate(interpret_serial, "interpret_serial", 2048, NULL, 10, NULL);
+        xTaskCreate(interpret_serial, "interpret_serial", 4096, NULL, 10, NULL);
         return 1;
     }
 
