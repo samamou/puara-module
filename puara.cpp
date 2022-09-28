@@ -1213,9 +1213,8 @@ void Puara::interpret_serial(void *pvParameters) {
              serial_data_str.compare("reboot") == 0 ) {
             std::cout <<  "\nRebooting...\n" << std::endl;
             xTaskCreate(&Puara::reboot_with_delay, "reboot_with_delay", 1024, NULL, 10, NULL);
-        } else if (serial_data_str.rfind("getstrsetting", 0) == 0) {
-            std::string var_name = serial_data_str.substr(serial_data_str.find(" ")+1);
-            std::cout << Puara::getVarText(var_name) << std::endl;
+        } else if (serial_data_str.compare("whatareyou") == 0) {
+            std::cout << Puara::device << std::endl;
         } else if (serial_data_str.rfind("config", 0) == 0) {
             serial_data_str_buffer = serial_data_str.substr(serial_data_str.find(" ")+1);
             Puara::read_config_json_internal(serial_data_str_buffer);
@@ -1224,6 +1223,18 @@ void Puara::interpret_serial(void *pvParameters) {
             serial_data_str_buffer = serial_data_str.substr(serial_data_str.find(" ")+1);
             Puara::read_settings_json_internal(serial_data_str_buffer);
             Puara::write_settings_json();
+        } else if (serial_data_str.compare("getconfig") == 0) {
+            Puara::mount_spiffs();
+            FILE* f = fopen("/spiffs/config.json", "r");
+            if (f == NULL) {
+                std::cout << "json: Failed to open file" << std::endl;
+                return;
+            }
+            std::ifstream in("/spiffs/config.json");
+            std::string contents((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+            std::cout << contents << std::endl;
+            fclose(f);
+            Puara::unmount_spiffs();
         } else {
             std::cout << "\nI don´t recognize the command \"" << serial_data_str << "\""<< std::endl;
         }
