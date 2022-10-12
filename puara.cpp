@@ -1224,7 +1224,7 @@ void Puara::interpret_serial(void *pvParameters) {
             Puara::read_config_json_internal(serial_data_str_buffer);
         } else if (serial_data_str.rfind("writeconfig") == 0) {
             Puara::write_config_json();
-        } else if (serial_data_str.compare("getconfig") == 0) {
+        } else if (serial_data_str.compare("readconfig") == 0) {
             Puara::mount_spiffs();
             FILE* f = fopen("/spiffs/config.json", "r");
             if (f == NULL) {
@@ -1241,7 +1241,7 @@ void Puara::interpret_serial(void *pvParameters) {
             Puara::read_settings_json_internal(serial_data_str_buffer, true);
         } else if (serial_data_str.rfind("writesettings") == 0) {
             Puara::write_settings_json();
-        } else if (serial_data_str.compare("getsettings") == 0) {
+        } else if (serial_data_str.compare("readsettings") == 0) {
             Puara::mount_spiffs();
             FILE* f = fopen("/spiffs/settings.json", "r");
             if (f == NULL) {
