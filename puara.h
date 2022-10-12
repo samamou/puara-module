@@ -105,8 +105,9 @@ class Puara {
         static void wifi_init();
 
         static std::string serial_data_str_buffer;
-        static void read_settings_json_internal(std::string& contents);
+        static void read_settings_json_internal(std::string& contents, bool merge=false);
         static void read_config_json_internal(std::string& contents);
+        static void merge_settings_json(std::string& new_contents);
 
         static httpd_handle_t webserver;
         static httpd_config_t webserver_config;

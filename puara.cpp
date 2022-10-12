@@ -502,12 +502,17 @@ void Puara::read_settings_json_internal(std::string& contents) {
     settings = cJSON_GetObjectItemCaseSensitive(root, "settings");
    
     settingsVariables temp;
-    variables.clear();
+    if (!merge) {
+        variables.clear();
+    }
     std::cout << "json: Extract info" << std::endl;
     cJSON_ArrayForEach(setting, settings) {
         cJSON *name = cJSON_GetObjectItemCaseSensitive(setting, "name");
         cJSON *value = cJSON_GetObjectItemCaseSensitive(setting, "value");
         temp.name = name->valuestring;
+        if (variables_fields.find(temp.name) == variables_fields.end()) {
+            continue;
+        }
         if (variables_fields.find(temp.name) == variables_fields.end()) {
             variables_fields.insert({temp.name, variables.size()});
         }
@@ -1221,8 +1226,8 @@ void Puara::interpret_serial(void *pvParameters) {
             Puara::write_config_json();
         } else if (serial_data_str.rfind("settings", 0) == 0) {
             serial_data_str_buffer = serial_data_str.substr(serial_data_str.find(" ")+1);
-            Puara::read_settings_json_internal(serial_data_str_buffer);
-            Puara::write_settings_json();
+            Puara::read_settings_json_internal(serial_data_str_buffer, true);
+            // Puara::write_settings_json();
         } else if (serial_data_str.compare("getconfig") == 0) {
             Puara::mount_spiffs();
             FILE* f = fopen("/spiffs/config.json", "r");
