@@ -1217,6 +1217,8 @@ void Puara::interpret_serial(void *pvParameters) {
              serial_data_str.compare("reboot") == 0 ) {
             std::cout <<  "\nRebooting...\n" << std::endl;
             xTaskCreate(&Puara::reboot_with_delay, "reboot_with_delay", 1024, NULL, 10, NULL);
+        } else if (serial_data_str.compare("ping") == 0) {
+            std::cout << "pong\n";
         } else if (serial_data_str.compare("whatareyou") == 0) {
             std::cout << Puara::device << std::endl;
         } else if (serial_data_str.rfind("sendconfig", 0) == 0) {
