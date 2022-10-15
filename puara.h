@@ -167,6 +167,8 @@ class Puara {
         static std::string getLocalPORTStr();
         static void mount_spiffs();
         static void unmount_spiffs();
+        static const std::string data_start;
+        static const std::string data_end;
         static void read_config_json();
         static void write_config_json();
         static void read_settings_json();

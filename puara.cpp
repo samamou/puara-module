@@ -82,6 +82,9 @@ int Puara::serial_data_length;
 std::string Puara::serial_data_str;
 std::string Puara::serial_data_str_buffer;
 
+const std::string Puara::data_start = "<<<";
+const std::string Puara::data_end = ">>>";
+
 
 unsigned int Puara::get_version() {
     return version;
@@ -1235,7 +1238,7 @@ void Puara::interpret_serial(void *pvParameters) {
             }
             std::ifstream in("/spiffs/config.json");
             std::string contents((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
-            std::cout << contents << std::endl;
+            std::cout << Puara::data_start << contents << Puara::data_end << std::endl;
             fclose(f);
             Puara::unmount_spiffs();
         } else if (serial_data_str.rfind("sendsettings", 0) == 0) {
@@ -1252,7 +1255,7 @@ void Puara::interpret_serial(void *pvParameters) {
             }
             std::ifstream in("/spiffs/settings.json");
             std::string contents((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
-            std::cout << contents << std::endl;
+            std::cout << Puara::data_start << contents << Puara::data_end << std::endl;
             fclose(f);
             Puara::unmount_spiffs();
         } else {
