@@ -1223,7 +1223,7 @@ void Puara::interpret_serial(void *pvParameters) {
         } else if (serial_data_str.compare("ping") == 0) {
             std::cout << "pong\n";
         } else if (serial_data_str.compare("whatareyou") == 0) {
-            std::cout << Puara::device << std::endl;
+            std::cout << Puara::data_start << Puara::dmiName << Puara::data_end << std::endl;
         } else if (serial_data_str.rfind("sendconfig", 0) == 0) {
             serial_data_str_buffer = serial_data_str.substr(serial_data_str.find(" ")+1);
             Puara::read_config_json_internal(serial_data_str_buffer);
