@@ -1210,6 +1210,10 @@ std::string Puara::convertToString(char* a) {
     return s;
 }
 
+void Puara::send_serial_data(std::string data) {
+    std::cout << Puara::data_start << data << Puara::data_end << std::endl;
+}
+
 void Puara::interpret_serial(void *pvParameters) {
     while (1) {
         vTaskDelay(1000 / portTICK_RATE_MS);
@@ -1223,7 +1227,7 @@ void Puara::interpret_serial(void *pvParameters) {
         } else if (serial_data_str.compare("ping") == 0) {
             std::cout << "pong\n";
         } else if (serial_data_str.compare("whatareyou") == 0) {
-            std::cout << Puara::data_start << Puara::dmiName << Puara::data_end << std::endl;
+            Puara::send_serial_data(Puara::dmiName);
         } else if (serial_data_str.rfind("sendconfig", 0) == 0) {
             serial_data_str_buffer = serial_data_str.substr(serial_data_str.find(" ")+1);
             Puara::read_config_json_internal(serial_data_str_buffer);
@@ -1238,7 +1242,7 @@ void Puara::interpret_serial(void *pvParameters) {
             }
             std::ifstream in("/spiffs/config.json");
             std::string contents((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
-            std::cout << Puara::data_start << contents << Puara::data_end << std::endl;
+            Puara::send_serial_data(contents);
             fclose(f);
             Puara::unmount_spiffs();
         } else if (serial_data_str.rfind("sendsettings", 0) == 0) {
@@ -1255,7 +1259,7 @@ void Puara::interpret_serial(void *pvParameters) {
             }
             std::ifstream in("/spiffs/settings.json");
             std::string contents((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
-            std::cout << Puara::data_start << contents << Puara::data_end << std::endl;
+            Puara::send_serial_data(contents);
             fclose(f);
             Puara::unmount_spiffs();
         } else {
