@@ -46,13 +46,11 @@
 #include <soc/uart_struct.h>
 
 class Puara {
-
     
     private:
         static unsigned int version;
         static std::string dmiName;
         
-
         struct settingsVariables {
             std::string name;
             std::string type;
