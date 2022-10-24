@@ -77,9 +77,14 @@ httpd_uri_t Puara::indexpost;
 httpd_uri_t Puara::settings;
 httpd_uri_t Puara::settingspost;
 
-char Puara::serial_data[12];
+char Puara::serial_data[PUARA_SERIAL_BUFSIZE];
 int Puara::serial_data_length;
 std::string Puara::serial_data_str;
+std::string Puara::serial_data_str_buffer;
+
+const std::string Puara::data_start = "<<<";
+const std::string Puara::data_end = ">>>";
+
 
 unsigned int Puara::get_version() {
     return version;
@@ -395,6 +400,13 @@ void Puara::read_config_json() { // Deserialize
     std::string contents((std::istreambuf_iterator<char>(in)), 
     std::istreambuf_iterator<char>());
 
+    Puara::read_config_json_internal(contents);
+
+    fclose(f);
+    Puara::unmount_spiffs();
+}
+
+void Puara::read_config_json_internal(std::string& contents) {
     std::cout << "json: Getting data" << std::endl;
     cJSON *root = cJSON_Parse(contents.c_str());
     if (cJSON_GetObjectItem(root, "device")) {
@@ -459,9 +471,6 @@ void Puara::read_config_json() { // Deserialize
     tempBuf << Puara::device << "_" << std::setfill('0') << std::setw(3) << Puara::id;
     Puara::dmiName = tempBuf.str();
     printf("Device unique name defined: %s\n",dmiName.c_str());
-
-    fclose(f);
-    Puara::unmount_spiffs();
 }
 
 void Puara::read_settings_json() {
@@ -481,6 +490,12 @@ void Puara::read_settings_json() {
     std::string contents((std::istreambuf_iterator<char>(in)), 
     std::istreambuf_iterator<char>());
 
+    Puara::read_settings_json_internal(contents);
+    fclose(f);
+    Puara::unmount_spiffs();
+}
+
+void Puara::read_settings_json_internal(std::string& contents, bool merge) {
     std::cout << "json: Getting data" << std::endl;
     cJSON *root = cJSON_Parse(contents.c_str());
     cJSON *setting = NULL;
@@ -490,25 +505,29 @@ void Puara::read_settings_json() {
     settings = cJSON_GetObjectItemCaseSensitive(root, "settings");
    
     settingsVariables temp;
-    variables.clear();
+    if (!merge) {
+        variables.clear();
+    }
     std::cout << "json: Extract info" << std::endl;
     cJSON_ArrayForEach(setting, settings) {
         cJSON *name = cJSON_GetObjectItemCaseSensitive(setting, "name");
         cJSON *value = cJSON_GetObjectItemCaseSensitive(setting, "value");
         temp.name = name->valuestring;
-        if (variables_fields.find(temp.name) == variables_fields.end()) {
-            variables_fields.insert({temp.name, variables.size()});
-        }
         if (!cJSON_IsNumber(value)) {
             temp.textValue = value->valuestring;
             temp.type = "text";
             temp.numberValue = 0;
-            variables.push_back(temp);
         } else {
             temp.textValue.empty();
             temp.numberValue = value->valuedouble;
             temp.type = "number";
+        }
+        if (variables_fields.find(temp.name) == variables_fields.end()) {
+            variables_fields.insert({temp.name, variables.size()});
             variables.push_back(temp);
+        } else {
+            int variable_index = variables_fields.at(temp.name);
+            variables.at(variable_index) = temp;
         }
     }
 
@@ -525,9 +544,6 @@ void Puara::read_settings_json() {
     std::cout << std::endl;
     
     cJSON_Delete(root);
-
-    fclose(f);
-    Puara::unmount_spiffs();
 }
 
 
@@ -1194,19 +1210,62 @@ std::string Puara::convertToString(char* a) {
     return s;
 }
 
-void Puara::interpret_serial(void *pvParameter) {
+void Puara::send_serial_data(std::string data) {
+    std::cout << Puara::data_start << data << Puara::data_end << std::endl;
+}
+
+void Puara::interpret_serial(void *pvParameters) {
     while (1) {
-        if ( !serial_data_str.empty() ) {
-            if ( serial_data_str.find("reset") != std::string::npos || 
-                 serial_data_str.find("reboot") != std::string::npos ) {
-                std::cout <<  "\nRebooting...\n" << std::endl;
-                xTaskCreate(&Puara::reboot_with_delay, "reboot_with_delay", 1024, NULL, 10, NULL);
-            } else {
-                std::cout << "\nI don´t recognize the command \"" << serial_data_str << "\""<< std::endl;
-            }
-            serial_data_str.clear();
-        }
         vTaskDelay(1000 / portTICK_RATE_MS);
+        if (serial_data_str.empty()) {
+            continue;
+        }
+        if ( serial_data_str.compare("reset") == 0 ||
+             serial_data_str.compare("reboot") == 0 ) {
+            std::cout <<  "\nRebooting...\n" << std::endl;
+            xTaskCreate(&Puara::reboot_with_delay, "reboot_with_delay", 1024, NULL, 10, NULL);
+        } else if (serial_data_str.compare("ping") == 0) {
+            std::cout << "pong\n";
+        } else if (serial_data_str.compare("whatareyou") == 0) {
+            Puara::send_serial_data(Puara::dmiName);
+        } else if (serial_data_str.rfind("sendconfig", 0) == 0) {
+            serial_data_str_buffer = serial_data_str.substr(serial_data_str.find(" ")+1);
+            Puara::read_config_json_internal(serial_data_str_buffer);
+        } else if (serial_data_str.rfind("writeconfig") == 0) {
+            Puara::write_config_json();
+        } else if (serial_data_str.compare("readconfig") == 0) {
+            Puara::mount_spiffs();
+            FILE* f = fopen("/spiffs/config.json", "r");
+            if (f == NULL) {
+                std::cout << "json: Failed to open file" << std::endl;
+                return;
+            }
+            std::ifstream in("/spiffs/config.json");
+            std::string contents((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+            Puara::send_serial_data(contents);
+            fclose(f);
+            Puara::unmount_spiffs();
+        } else if (serial_data_str.rfind("sendsettings", 0) == 0) {
+            serial_data_str_buffer = serial_data_str.substr(serial_data_str.find(" ")+1);
+            Puara::read_settings_json_internal(serial_data_str_buffer, true);
+        } else if (serial_data_str.rfind("writesettings") == 0) {
+            Puara::write_settings_json();
+        } else if (serial_data_str.compare("readsettings") == 0) {
+            Puara::mount_spiffs();
+            FILE* f = fopen("/spiffs/settings.json", "r");
+            if (f == NULL) {
+                std::cout << "json: Failed to open file" << std::endl;
+                return;
+            }
+            std::ifstream in("/spiffs/settings.json");
+            std::string contents((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+            Puara::send_serial_data(contents);
+            fclose(f);
+            Puara::unmount_spiffs();
+        } else {
+            std::cout << "\nI don´t recognize the command \"" << serial_data_str << "\""<< std::endl;
+        }
+        serial_data_str.clear();
     }
 }
 
@@ -1233,7 +1292,7 @@ void Puara::interpret_serial(void *pvParameter) {
 
         while(1) {
             //Read data from UART
-            serial_data_length = uart_read_bytes(uart_num0, serial_data, UART_FIFO_LEN, 500 / portTICK_RATE_MS);
+            serial_data_length = uart_read_bytes(uart_num0, serial_data, PUARA_SERIAL_BUFSIZE, 500 / portTICK_RATE_MS);
             if (serial_data_length > 0) {
                 serial_data_str = convertToString(serial_data);
                 memset(serial_data, 0, sizeof serial_data);
@@ -1245,7 +1304,7 @@ void Puara::interpret_serial(void *pvParameter) {
     bool Puara::start_serial_listening() {
         //std::cout << "starting serial monitor \n";
         xTaskCreate(serial_monitor, "serial_monitor", 2048, NULL, 10, NULL);
-        xTaskCreate(interpret_serial, "interpret_serial", 2048, NULL, 10, NULL);
+        xTaskCreate(interpret_serial, "interpret_serial", 4096, NULL, 10, NULL);
         return 1;
     }
 

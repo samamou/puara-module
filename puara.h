@@ -8,6 +8,8 @@
 #ifndef PUARA_H
 #define PUARA_H
 
+#define PUARA_SERIAL_BUFSIZE 1024
+
 #include <stdio.h>
 #include <string>
 #include <cstring>
@@ -100,6 +102,11 @@ class Puara {
         static void ap_event_handler(void* arg, esp_event_base_t event_base, int event_id, void* event_data);
         static void wifi_init();
 
+        static std::string serial_data_str_buffer;
+        static void read_settings_json_internal(std::string& contents, bool merge=false);
+        static void read_config_json_internal(std::string& contents);
+        static void merge_settings_json(std::string& new_contents);
+
         static httpd_handle_t webserver;
         static httpd_config_t webserver_config;
         static httpd_uri_t index;
@@ -128,11 +135,12 @@ class Puara {
         static const uint8_t spiffs_max_files = 10;
         static const bool spiffs_format_if_mount_failed = false;
 
-        static char serial_data[12];
+        static char serial_data[PUARA_SERIAL_BUFSIZE];
         static int serial_data_length;
         static std::string serial_data_str;
+        static std::string serial_config_str;
         static std::string convertToString(char* a);
-        static void interpret_serial(void *pvParameter);
+        static void interpret_serial(void *pvParameters);
         static void serial_monitor(void *pvParameters);
         static const int reboot_delay = 3000;
         static void reboot_with_delay(void *pvParameter);
@@ -157,11 +165,14 @@ class Puara {
         static std::string getLocalPORTStr();
         static void mount_spiffs();
         static void unmount_spiffs();
+        static const std::string data_start;
+        static const std::string data_end;
         static void read_config_json();
         static void write_config_json();
         static void read_settings_json();
         static void write_settings_json();
         static bool start_serial_listening();
+        static void send_serial_data(std::string data);
         static void start_mdns_service(const char * device_name, const char * instance_name);
         static void start_mdns_service(std::string device_name, std::string instance_name);
         static void wifi_scan(void);
