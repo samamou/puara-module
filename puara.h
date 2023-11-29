@@ -33,6 +33,7 @@
 #include <cJSON.h>
 #include <esp_http_server.h>
 #include <driver/uart.h>
+#include <driver/usb_serial_jtag.h> // jtag module
 #include <mdns.h>
 
 // The following libraries need to be included if using the espidf framework:
@@ -45,7 +46,7 @@
 #include <esp_event.h>
 #include <soc/uart_struct.h>
 #include "esp_console.h"
-#include "linenoise/linenoise.h"
+#include "esp32-hal-tinyusb.h"
 
 class Puara {
     
@@ -145,12 +146,20 @@ class Puara {
         static void interpret_serial(void *pvParameters);
         static void uart_monitor(void *pvParameters);
         static void jtag_monitor(void *pvParameters);
+        static void usb_monitor(void *pvParameters);
         static const int reboot_delay = 3000;
         static void reboot_with_delay(void *pvParameter);
         static std::string urlDecode(std::string text);
     
     public:
-        static void start(); 
+        // Monitor types
+        enum Monitors {
+            UART_MONITOR = 0,
+            JTAG_MONITOR = 1,
+            USB_MONITOR = 2
+        };
+
+        static void start(Monitors monitor = UART_MONITOR); 
         static void config_spiffs();
         static httpd_handle_t start_webserver(void);
         static void stop_webserver(void);
@@ -185,15 +194,8 @@ class Puara {
         static bool IP1_ready();
         static bool IP2_ready();
 
-        // Monitor types
-        enum Monitors {
-            UART 0,
-            JTAG 1,
-            USB 2
-        };
-
         // Set default monitor as UART
-        module_monitor = UART;
+        static int module_monitor;
 };
 
 #endif
