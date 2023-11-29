@@ -1269,7 +1269,7 @@ void Puara::interpret_serial(void *pvParameters) {
     }
 }
 
-    void Puara::serial_monitor(void *pvParameters) {
+    void Puara::uart_monitor(void *pvParameters) {
         const int uart_num0 = 0; //UART port 0
         uart_config_t uart_config0 = {
             .baud_rate = 115200,
@@ -1301,10 +1301,100 @@ void Puara::interpret_serial(void *pvParameters) {
         }
     }
 
+    void Puara::jtag_monitor(void *pvParameters) {
+        // Setup USB CDC Monitor, code based on advanced example from ESP-IDF Repsitory
+        // https://github.com/espressif/esp-idf/blob/master/examples/system/console/advanced_usb_cdc/main/console_usb_example_main.c
+
+        /* Disable buffering on stdin */
+        setvbuf(stdin, NULL, _IONBF, 0);
+
+        /* Minicom, screen, idf_monitor send CR when ENTER key is pressed */
+        esp_vfs_dev_cdcacm_set_rx_line_endings(ESP_LINE_ENDINGS_CR);
+        /* Move the caret to the beginning of the next line on '\n' */
+        esp_vfs_dev_cdcacm_set_tx_line_endings(ESP_LINE_ENDINGS_CRLF);
+
+        /* Enable non-blocking mode on stdin and stdout */
+        fcntl(fileno(stdout), F_SETFL, 0);
+        fcntl(fileno(stdin), F_SETFL, 0);
+
+        /* Initialize the console */
+        esp_console_config_t console_config = {
+                .max_cmdline_args = 8,
+                .max_cmdline_length = 256,
+        #if CONFIG_LOG_COLORS
+                    .hint_color = atoi(LOG_COLOR_CYAN)
+        #endif
+        };
+        ESP_ERROR_CHECK( esp_console_init(&console_config) );
+
+        /* Configure linenoise line completion library */
+        /* Enable multiline editing. If not set, long commands will scroll within
+        * single line.
+        */
+        linenoiseSetMultiLine(1);
+
+        /* Tell linenoise where to get command completions and hints */
+        linenoiseSetCompletionCallback(&esp_console_get_completion);
+        linenoiseSetHintsCallback((linenoiseHintsCallback*) &esp_console_get_hint);
+
+        /* Set command history size */
+        linenoiseHistorySetMaxLen(10);
+
+        // Prompt
+        const char* prompt = LOG_COLOR_I CONFIG_IDF_TARGET "> " LOG_RESET_COLOR;
+
+        // Register some common commands
+        register_system_sleep();
+        register_restart();
+
+        // Register puara specific commands
+        // esp_console_cmd_register(); ping
+        // esp_console_cmd_register(); whatareyou
+        // esp_console_cmd_register(); sendconfig
+        // esp_console_cmd_register(); writeconfig
+        // esp_console_cmd_register(); readconfig
+        // esp_console_cmd_register(); sendsettings
+        // esp_console_cmd_register(); writesettings
+        // esp_console_cmd_register(); readsettings
+
+        while(1) {
+            /* Get a line using linenoise.
+            * The line is returned when ENTER is pressed.
+            */
+            char* line = linenoise(prompt);
+            if (line == NULL) { /* Ignore empty lines */
+                continue;
+            }
+            /* Add the command to the history */
+            linenoiseHistoryAdd(line);
+
+            /* Try to run the command */
+            int ret;
+            esp_err_t err = esp_console_run(line, &ret);
+            if (err == ESP_ERR_NOT_FOUND) {
+                printf("Unrecognized command\n");
+            } else if (err == ESP_ERR_INVALID_ARG) {
+                // command was empty
+            } else if (err == ESP_OK && ret != ESP_OK) {
+                printf("Command returned non-zero error code: 0x%x (%s)\n", ret, esp_err_to_name(ret));
+            } else if (err != ESP_OK) {
+                printf("Internal error: %s\n", esp_err_to_name(err));
+            }
+
+            /* linenoise allocates line buffer on the heap, so need to free it */
+            linenoiseFree(line);
+        }
+    }
+
     bool Puara::start_serial_listening() {
         //std::cout << "starting serial monitor \n";
-        xTaskCreate(serial_monitor, "serial_monitor", 2048, NULL, 10, NULL);
-        xTaskCreate(interpret_serial, "interpret_serial", 4096, NULL, 10, NULL);
+        if (puara.module_monitor = UART) {
+            xTaskCreate(uart_monitor, "serial_monitor", 2048, NULL, 10, NULL);
+            xTaskCreate(interpret_serial, "interpret_serial", 4096, NULL, 10, NULL);
+        } else if (puara.module_monitor = JTAG) {
+            xTaskCreate(jtag_monitor, "serial_monitor", 2048, NULL, 10, NULL);
+            xTaskCreate(interpret_serial, "interpret_serial", 4096, NULL, 10, NULL);    
+        }
         return 1;
     }
 

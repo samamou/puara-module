@@ -44,6 +44,8 @@
 #include <lwip/sys.h>
 #include <esp_event.h>
 #include <soc/uart_struct.h>
+#include "esp_console.h"
+#include "linenoise/linenoise.h"
 
 class Puara {
     
@@ -141,7 +143,8 @@ class Puara {
         static std::string serial_config_str;
         static std::string convertToString(char* a);
         static void interpret_serial(void *pvParameters);
-        static void serial_monitor(void *pvParameters);
+        static void uart_monitor(void *pvParameters);
+        static void jtag_monitor(void *pvParameters);
         static const int reboot_delay = 3000;
         static void reboot_with_delay(void *pvParameter);
         static std::string urlDecode(std::string text);
@@ -181,6 +184,15 @@ class Puara {
         static std::string getVarText(std::string varName);
         static bool IP1_ready();
         static bool IP2_ready();
+
+        // Monitor types
+        enum Monitors {
+            UART 0,
+            JTAG 1
+        };
+
+        // Set default monitor as UART
+        module_monitor = UART;
 };
 
 #endif
