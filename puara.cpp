@@ -1391,9 +1391,8 @@ void Puara::interpret_serial(void *pvParameters) {
         if (puara.module_monitor = UART) {
             xTaskCreate(uart_monitor, "serial_monitor", 2048, NULL, 10, NULL);
             xTaskCreate(interpret_serial, "interpret_serial", 4096, NULL, 10, NULL);
-        } else if (puara.module_monitor = JTAG) {
+        } else if ((puara.module_monitor = JTAG) || (puara.module_monitor = USB)) {
             xTaskCreate(jtag_monitor, "serial_monitor", 2048, NULL, 10, NULL);
-            xTaskCreate(interpret_serial, "interpret_serial", 4096, NULL, 10, NULL);    
         }
         return 1;
     }

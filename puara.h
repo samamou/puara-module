@@ -188,7 +188,8 @@ class Puara {
         // Monitor types
         enum Monitors {
             UART 0,
-            JTAG 1
+            JTAG 1,
+            USB 2
         };
 
         // Set default monitor as UART
