@@ -1353,6 +1353,7 @@ void Puara::interpret_serial(void *pvParameters) {
         // // Setup USB interface
         // tinyusb_init(&usb_config);
         // TODO: Read from USB interface
+        std::cout << "USB OTG monitor not supported, use the USB Serial JTAG or UART interface" << std::endl;
     }
 
     bool Puara::start_serial_listening() {
