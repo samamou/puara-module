@@ -81,10 +81,9 @@ char Puara::serial_data[PUARA_SERIAL_BUFSIZE];
 int Puara::serial_data_length;
 std::string Puara::serial_data_str;
 std::string Puara::serial_data_str_buffer;
-
+int Puara::module_monitor = UART_MONITOR;
 const std::string Puara::data_start = "<<<";
 const std::string Puara::data_end = ">>>";
-
 
 unsigned int Puara::get_version() {
     return version;
@@ -94,7 +93,7 @@ void Puara::set_version(unsigned int user_version) {
     version = user_version;
 };
 
-void Puara::start() {
+void Puara::start(Monitors monitor) {
     std::cout 
     << "\n"
     << "**********************************************************\n"
@@ -113,6 +112,8 @@ void Puara::start() {
     start_webserver();
     start_mdns_service(dmiName, dmiName);
     wifi_scan();
+
+    module_monitor = monitor;
     
     // some delay added as start listening blocks the hw monitor
     std::cout << "Starting serial monitor..." << std::endl;
@@ -1269,7 +1270,7 @@ void Puara::interpret_serial(void *pvParameters) {
     }
 }
 
-    void Puara::serial_monitor(void *pvParameters) {
+    void Puara::uart_monitor(void *pvParameters) {
         const int uart_num0 = 0; //UART port 0
         uart_config_t uart_config0 = {
             .baud_rate = 115200,
@@ -1301,10 +1302,74 @@ void Puara::interpret_serial(void *pvParameters) {
         }
     }
 
+    void Puara::jtag_monitor(void *pvParameters) {
+        // Setup jtag module for USB Serial reads
+        usb_serial_jtag_driver_config_t jtag_config {
+            .tx_buffer_size = 256,
+            .rx_buffer_size = 256,
+        };
+
+        // Install jtag module
+        usb_serial_jtag_driver_install(&jtag_config);
+
+        while(1) {
+            // serial_data_length = USBSerial.read();
+            // Only read if connected to PC
+            serial_data_length = usb_serial_jtag_read_bytes(serial_data, PUARA_SERIAL_BUFSIZE, 500 / portTICK_RATE_MS);
+            if (serial_data_length > 0) {
+                serial_data_str = convertToString(serial_data);
+                // remove new line character at end
+                if (serial_data_str[serial_data_str.size() - 1] == '\n')
+                    serial_data_str.erase(serial_data_str.size() - 1);
+                if (serial_data_str[serial_data_str.size() - 1] == '\r')
+                    serial_data_str.erase(serial_data_str.size() - 1); 
+                memset(serial_data, 0, sizeof serial_data);
+            }
+        }
+    }
+
+    void Puara::usb_monitor(void *pvParameters) {
+        // // Setup usb module for USB reads
+        // const char *product_name = dmiName.c_str();
+        // const char *manufacturer_name = author.c_str();
+
+        // tinyusb_device_config_t usb_config = {                                    
+        //     .vid = USB_ESPRESSIF_VID,                                       
+        //     .pid = 0x0002,                                                  
+        //     .product_name = product_name,                 
+        //     .manufacturer_name = manufacturer_name,       
+        //     .serial_number = product_name,                 
+        //     .fw_version = version,                        
+        //     .usb_version = 0x0200,                                          
+        //     .usb_class = TUSB_CLASS_MISC,                                   
+        //     .usb_subclass = MISC_SUBCLASS_COMMON,                           
+        //     .usb_protocol = MISC_PROTOCOL_IAD,                              
+        //     .usb_attributes = TUSB_DESC_CONFIG_ATT_SELF_POWERED,            
+        //     .usb_power_ma = 500,                                            
+        //     .webusb_enabled = false,                                        
+        //     .webusb_url = "espressif.github.io/arduino-esp32/webusb.html"   
+        // };
+
+        // // Setup USB interface
+        // tinyusb_init(&usb_config);
+        // TODO: Read from USB interface
+        std::cout << "USB OTG monitor not supported, use the USB Serial JTAG or UART interface" << std::endl;
+    }
+
     bool Puara::start_serial_listening() {
         //std::cout << "starting serial monitor \n";
-        xTaskCreate(serial_monitor, "serial_monitor", 2048, NULL, 10, NULL);
-        xTaskCreate(interpret_serial, "interpret_serial", 4096, NULL, 10, NULL);
+        if (module_monitor = UART_MONITOR) {
+            xTaskCreate(uart_monitor, "serial_monitor", 2048, NULL, 10, NULL);
+            xTaskCreate(interpret_serial, "interpret_serial", 4096, NULL, 10, NULL);
+        } else if (module_monitor = JTAG_MONITOR) {
+            xTaskCreate(jtag_monitor, "serial_monitor", 2048, NULL, 10, NULL);
+            xTaskCreate(interpret_serial, "interpret_serial", 4096, NULL, 10, NULL);
+        } else if (module_monitor = USB_MONITOR) {
+            xTaskCreate(usb_monitor, "serial_monitor", 2048, NULL, 10, NULL);
+            xTaskCreate(interpret_serial, "interpret_serial", 4096, NULL, 10, NULL);
+        } else {
+            std::cout << "Invalid Monitor Type" << std::endl;
+        }
         return 1;
     }
 
