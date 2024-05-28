@@ -720,7 +720,7 @@ std::string Puara::prepare_index() {
     Puara::find_and_replace("%CURRENTOSC1%", Puara::oscIP1, contents);
     Puara::find_and_replace("%CURRENTPORT1%", Puara::oscPORT1, contents);
     Puara::find_and_replace("%CURRENTOSC2%", Puara::oscIP2, contents);
-    Puara::find_and_replace("%CURRENTPORT2%", Puara::oscPORT1, contents);
+    Puara::find_and_replace("%CURRENTPORT2%", Puara::oscPORT2, contents);
     Puara::find_and_replace("%CURRENTLOCALPORT%", Puara::localPORT, contents);
     Puara::find_and_replace("%CURRENTSSID2%", Puara::wifiSSID, contents);
     Puara::find_and_replace("%CURRENTIP%", Puara::currentSTA_IP, contents);
@@ -1303,6 +1303,7 @@ void Puara::interpret_serial(void *pvParameters) {
     }
 
     void Puara::jtag_monitor(void *pvParameters) {
+        #if CONFIG_IDF_TARGET_ESP32S2 || CONFIG_IDF_TARGET_ESP32S3
         // Setup jtag module for USB Serial reads
         usb_serial_jtag_driver_config_t jtag_config {
             .tx_buffer_size = 256,
@@ -1326,9 +1327,11 @@ void Puara::interpret_serial(void *pvParameters) {
                 memset(serial_data, 0, sizeof serial_data);
             }
         }
+        #endif
     }
 
     void Puara::usb_monitor(void *pvParameters) {
+        #if CONFIG_IDF_TARGET_ESP32S2 || CONFIG_IDF_TARGET_ESP32S3
         // // Setup usb module for USB reads
         // const char *product_name = dmiName.c_str();
         // const char *manufacturer_name = author.c_str();
@@ -1354,17 +1357,18 @@ void Puara::interpret_serial(void *pvParameters) {
         // tinyusb_init(&usb_config);
         // TODO: Read from USB interface
         std::cout << "USB OTG monitor not supported, use the USB Serial JTAG or UART interface" << std::endl;
+        #endif
     }
 
     bool Puara::start_serial_listening() {
         //std::cout << "starting serial monitor \n";
-        if (module_monitor = UART_MONITOR) {
+        if (module_monitor == UART_MONITOR) {
             xTaskCreate(uart_monitor, "serial_monitor", 2048, NULL, 10, NULL);
             xTaskCreate(interpret_serial, "interpret_serial", 4096, NULL, 10, NULL);
-        } else if (module_monitor = JTAG_MONITOR) {
+        } else if (module_monitor == JTAG_MONITOR) {
             xTaskCreate(jtag_monitor, "serial_monitor", 2048, NULL, 10, NULL);
             xTaskCreate(interpret_serial, "interpret_serial", 4096, NULL, 10, NULL);
-        } else if (module_monitor = USB_MONITOR) {
+        } else if (module_monitor == USB_MONITOR) {
             xTaskCreate(usb_monitor, "serial_monitor", 2048, NULL, 10, NULL);
             xTaskCreate(interpret_serial, "interpret_serial", 4096, NULL, 10, NULL);
         } else {
@@ -1497,17 +1501,17 @@ std::string Puara::getLocalPORTStr() {
 }
 
 bool Puara::IP1_ready() {
-    if (oscIP1 != "0.0.0.0" || oscIP1 != "") {
-        return true;
-    } else {
+    if ((oscIP1 == "0.0.0.0") || (oscIP1 == "")) {
         return false;
+    } else {
+        return true;
     }
 }
 
 bool Puara::IP2_ready() {
-    if (oscIP2 != "0.0.0.0" || oscIP2 != "") {
-        return true;
-    } else {
+    if ((oscIP2 == "0.0.0.0") || (oscIP2 == "")) {
         return false;
+    } else {
+        return true;
     }
 }
