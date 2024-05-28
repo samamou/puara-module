@@ -105,8 +105,7 @@ class Puara {
         static const short int max_connection = 5;
         static const short int wifi_maximum_retry = 5;
         static short int connect_counter;
-        static void sta_event_handler(void* arg, esp_event_base_t event_base, int event_id, void* event_data);
-        static void ap_event_handler(void* arg, esp_event_base_t event_base, int event_id, void* event_data);
+        static void sta_event_handler(void* arg, esp_event_base_t event_base, int32_t event_id, void* event_data);
         static void wifi_init();
 
         static std::string serial_data_str_buffer;
