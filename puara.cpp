@@ -118,7 +118,7 @@ void Puara::start(Monitors monitor)
     module_monitor = monitor;
 
     // some delay added as start listening blocks the hw monitor
-    std::cout << "Starting serial monitor..." << std::endl;
+    std::cout << "PUARA Starting serial monitor..." << std::endl;
     vTaskDelay(50 / portTICK_RATE_MS);
     if (start_serial_listening())
     {
@@ -972,20 +972,58 @@ esp_err_t Puara::style_get_handler(httpd_req_t *req)
 
 esp_err_t Puara::scan_get_handler(httpd_req_t *req)
 {
-
     const char *resp_str = (const char *)req->user_ctx;
     Puara::mount_spiffs();
+
     std::cout << "http (spiffs): Reading scan.html file" << std::endl;
     std::ifstream in(resp_str);
-    std::string contents((std::istreambuf_iterator<char>(in)),
-                         std::istreambuf_iterator<char>());
-    wifi_scan();
-    find_and_replace("%SSIDS%", wifiAvailableSsid, contents);
-    httpd_resp_sendstr(req, contents.c_str());
+    if (!in)
+    {
+        std::cerr << "Error: Could not open " << resp_str << std::endl;
+        Puara::unmount_spiffs();
+        httpd_resp_send_404(req);
+        return ESP_FAIL;
+    }
+
+    std::string contents((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    in.close();
+
+    // Fetch SSID list from JSON
+    std::string ssid_html;
+    if (Puara::variables_fields.find("wifi_ssids") != Puara::variables_fields.end())
+    {
+        int index = Puara::variables_fields["wifi_ssids"];
+        std::string ssid_list_str = Puara::variables[index].textValue;
+        cJSON *ssid_list = cJSON_Parse(ssid_list_str.c_str());
+
+        if (cJSON_IsArray(ssid_list))
+        {
+            cJSON *ssid_item;
+            cJSON_ArrayForEach(ssid_item, ssid_list)
+            {
+                const char *ssid_name = cJSON_GetObjectItem(ssid_item, "ssid")->valuestring;
+                int rssi = cJSON_GetObjectItem(ssid_item, "rssi")->valueint;
+                ssid_html += "<div><strong>SSID:</strong> " + std::string(ssid_name) + " (RSSI: " + std::to_string(rssi) + ")</div>";
+            }
+        }
+        cJSON_Delete(ssid_list);
+    }
+
+    // Insert the generated SSID list into the HTML content
+    Puara::find_and_replace("%SSIDS%", ssid_html, contents);
+
+    // Debugging: Print the final HTML content
+    std::cout << "Final HTML Content: " << contents << std::endl;
+
+    // Send the response
+    esp_err_t res = httpd_resp_sendstr(req, contents.c_str());
+    if (res != ESP_OK)
+    {
+        std::cerr << "Error sending HTTP response: " << esp_err_to_name(res) << std::endl;
+    }
 
     Puara::unmount_spiffs();
-
-    return ESP_OK;
+    return res;
 }
 
 // esp_err_t Puara::update_get_handler(httpd_req_t *req) {
@@ -1285,7 +1323,7 @@ httpd_handle_t Puara::start_webserver(void)
     Puara::webserver = NULL;
 
     Puara::webserver_config.task_priority = tskIDLE_PRIORITY + 5;
-    Puara::webserver_config.stack_size = 4096;
+    Puara::webserver_config.stack_size = 8192;
     Puara::webserver_config.core_id = tskNO_AFFINITY;
     Puara::webserver_config.server_port = 80;
     Puara::webserver_config.ctrl_port = 32768;
@@ -1632,7 +1670,6 @@ void Puara::start_mdns_service(std::string device_name, std::string instance_nam
 
 void Puara::wifi_scan(void)
 {
-
     uint16_t number = wifiScanSize;
     wifi_ap_record_t ap_info[wifiScanSize];
     uint16_t ap_count = 0;
@@ -1642,9 +1679,16 @@ void Puara::wifi_scan(void)
     ESP_ERROR_CHECK(esp_wifi_scan_get_ap_records(&number, ap_info));
     ESP_ERROR_CHECK(esp_wifi_scan_get_ap_num(&ap_count));
     std::cout << "wifi_scan: Total APs scanned = " << ap_count << std::endl;
+
+    // Clear any previous SSID data
     wifiAvailableSsid.clear();
+
+    // Initialize the JSON array for storing SSID information
+    cJSON *ssid_list = cJSON_CreateArray();
+
     for (int i = 0; (i < wifiScanSize) && (i < ap_count); i++)
     {
+        // Append to the HTML string
         wifiAvailableSsid.append("<strong>SSID: </strong>");
         wifiAvailableSsid.append(reinterpret_cast<const char *>(ap_info[i].ssid));
         wifiAvailableSsid.append("<br>      (RSSI: ");
@@ -1652,7 +1696,31 @@ void Puara::wifi_scan(void)
         wifiAvailableSsid.append(", Channel: ");
         wifiAvailableSsid.append(std::to_string(ap_info[i].primary));
         wifiAvailableSsid.append(")<br>");
+
+        // Create a new JSON object for this SSID and add it to the array
+        cJSON *ssid_item = cJSON_CreateObject();
+        cJSON_AddStringToObject(ssid_item, "ssid", reinterpret_cast<const char *>(ap_info[i].ssid));
+        cJSON_AddNumberToObject(ssid_item, "rssi", ap_info[i].rssi);
+        cJSON_AddItemToArray(ssid_list, ssid_item);
     }
+
+    // Convert the JSON array to a string
+    char *ssid_list_str = cJSON_Print(ssid_list);
+    cJSON_Delete(ssid_list); // Clean up the JSON array
+
+    // Store the JSON string in Puara::variables
+    if (Puara::variables_fields.find("wifi_ssids") == Puara::variables_fields.end())
+    {
+        Puara::variables_fields["wifi_ssids"] = Puara::variables.size();
+        Puara::variables.push_back({.name = "wifi_ssids", .type = "text", .textValue = std::string(ssid_list_str), .numberValue = 0});
+    }
+    else
+    {
+        int index = Puara::variables_fields["wifi_ssids"];
+        Puara::variables[index].textValue = std::string(ssid_list_str);
+    }
+
+    free(ssid_list_str); // Free the allocated memory
 }
 
 std::string Puara::urlDecode(std::string text)
